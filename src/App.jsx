@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Target, 
@@ -36,7 +36,8 @@ import {
   fetchRedditPosts, 
   DEFAULT_FEEDS,
   filterNewsByKeywords,
-  fetchFeed 
+  fetchFeed,
+  getTrendingTopics
 } from './services/feedService';
 
 // Components
@@ -61,6 +62,62 @@ const saveToStorage = (key, data) => {
   } catch (e) {
     console.error('Storage error:', e);
   }
+};
+
+/**
+ * Top navigation bar for global search + quick nav
+ */
+const TopBar = ({ onSearch, onAddClick, onOpenSocial, searchInputRef }) => {
+  const [query, setQuery] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSearch?.(query.trim());
+  };
+
+  return (
+    <header className="sticky top-0 z-20 backdrop-blur bg-slate-950/80 border-b border-slate-900 px-8 py-4 flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+          <Radio className="w-5 h-5 text-emerald-400" />
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500 font-semibold">FreightIntel Engine</p>
+          <p className="text-sm text-slate-400">Navigate leads, signals, and social in one place</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex-1 max-w-xl">
+        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 focus-within:border-emerald-500/50">
+          <Search className="w-4 h-4 text-slate-500" />
+          <input
+            ref={searchInputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search targets, companies, signals"
+            className="bg-transparent flex-1 outline-none text-sm text-white placeholder:text-slate-600"
+          />
+          <button type="submit" className="px-3 py-1 text-xs font-semibold rounded bg-emerald-600 hover:bg-emerald-500 text-white">Search</button>
+        </div>
+      </form>
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onOpenSocial}
+          className="px-3 py-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-200 text-sm font-medium hover:border-emerald-500/40 hover:text-white"
+        >
+          Social Center
+        </button>
+        <button
+          onClick={onAddClick}
+          className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold shadow-lg shadow-emerald-900/20 flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Add Target
+        </button>
+      </div>
+    </header>
+  );
 };
 
 /**
@@ -125,8 +182,8 @@ const generateMockPost = (newsItem) => {
  * COMPONENTS
  */
 
-const Sidebar = ({ activeTab, setActiveTab }) => (
-  <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-full text-slate-300 flex-shrink-0">
+const Sidebar = ({ activeTab, setActiveTab, totalTargets = 0, whaleCount = 0, draftCount = 0 }) => (
+  <div className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col h-full text-slate-300 flex-shrink-0">
     <div className="p-6 flex items-center gap-3 border-b border-slate-800">
       <div className="bg-emerald-500/20 p-2 rounded-lg">
         <Brain className="w-6 h-6 text-emerald-400" />
@@ -138,26 +195,44 @@ const Sidebar = ({ activeTab, setActiveTab }) => (
     </div>
     
     <nav className="flex-1 p-4 space-y-2">
+      <div className="text-xs text-slate-500 uppercase tracking-[0.15em] px-2 mb-1">Navigate</div>
       <button 
         onClick={() => setActiveTab('dashboard')}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'dashboard' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'hover:bg-slate-800'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all border ${activeTab === 'dashboard' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'border-transparent hover:bg-slate-800'}`}
       >
         <LayoutDashboard className="w-4 h-4" />
-        <span className="font-medium">Sniper Dashboard</span>
+        <div className="flex-1 text-left">
+          <span className="font-medium">Sniper Dashboard</span>
+          <p className="text-[11px] text-slate-500">Targets & outreach</p>
+        </div>
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">{totalTargets}</span>
       </button>
       
       <button 
         onClick={() => setActiveTab('social')}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === 'social' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'hover:bg-slate-800'}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all border ${activeTab === 'social' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'border-transparent hover:bg-slate-800'}`}
       >
         <Radio className="w-4 h-4" />
-        <span className="font-medium">Social Center</span>
+        <div className="flex-1 text-left">
+          <span className="font-medium">Social Center</span>
+          <p className="text-[11px] text-slate-500">Live signals & posts</p>
+        </div>
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">{draftCount}</span>
       </button>
 
-      <div className="pt-4 pb-2 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-        System
+      <div className="text-xs text-slate-500 uppercase tracking-[0.15em] px-2 pt-3">Rollup</div>
+      <div className="grid grid-cols-2 gap-2 px-1">
+        <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3">
+          <p className="text-[11px] text-slate-500">Whales</p>
+          <p className="text-lg font-semibold text-white">{whaleCount}</p>
+        </div>
+        <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3">
+          <p className="text-[11px] text-slate-500">Drafts</p>
+          <p className="text-lg font-semibold text-amber-300">{draftCount}</p>
+        </div>
       </div>
 
+      <div className="pt-4 pb-2 px-2 text-xs font-semibold text-slate-600 uppercase tracking-wider">System</div>
       <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 text-slate-400">
         <Terminal className="w-4 h-4" />
         <span>Agent Logs</span>
@@ -169,9 +244,12 @@ const Sidebar = ({ activeTab, setActiveTab }) => (
     </nav>
 
     <div className="p-4 border-t border-slate-800">
-      <div className="bg-slate-800/50 rounded-lg p-3 flex items-center gap-3">
+      <div className="bg-slate-800/60 rounded-lg p-3 flex items-center gap-3">
         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-xs text-emerald-400 font-medium">System Online</span>
+        <div>
+          <span className="text-xs text-emerald-400 font-medium block">System Online</span>
+          <span className="text-[11px] text-slate-500">Cmd + / opens search</span>
+        </div>
       </div>
     </div>
   </div>
@@ -477,75 +555,169 @@ const ProspectDetail = ({ prospect, onBack, onDelete }) => {
   );
 };
 
-const Dashboard = ({ prospects, onSelectProspect, onAddClick }) => (
-  <div className="p-8 h-full overflow-y-auto">
-    <div className="flex items-center justify-between mb-8">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Sniper Dashboard</h2>
-        <p className="text-slate-400">Turtle Trader Protocol: <span className="text-emerald-400">Active</span></p>
-      </div>
-      <button 
-        onClick={onAddClick}
-        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all font-medium"
-      >
-        <Plus className="w-4 h-4" />
-        Add Target
-      </button>
-    </div>
+const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', onOpenSocial }) => {
+  const filteredProspects = prospects.filter((p) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(q) ||
+      p.company.toLowerCase().includes(q) ||
+      p.title.toLowerCase().includes(q)
+    );
+  });
 
-    {/* Metrics */}
-    <div className="grid grid-cols-4 gap-4 mb-8">
-      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-        <p className="text-slate-500 text-xs uppercase font-medium">Pipeline Value</p>
-        <p className="text-2xl font-bold text-white mt-1">
-           ${((prospects.length * 150000)/1000000).toFixed(1)}M
-        </p>
-        <div className="flex items-center gap-1 mt-2 text-emerald-400 text-xs">
-          <TrendingUp className="w-3 h-3" /> Live Estimate
+  return (
+    <div className="p-8 h-full overflow-y-auto space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-2">Sniper Dashboard</h2>
+          <p className="text-slate-400 flex items-center gap-2">
+            Turtle Trader Protocol <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 text-xs border border-emerald-500/30">Active</span>
+            {searchQuery && (
+              <span className="text-xs text-slate-500">Filtered by "{searchQuery}"</span>
+            )}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onOpenSocial}
+            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-800 text-sm flex items-center gap-2"
+          >
+            <Radio className="w-4 h-4" /> Social Center
+          </button>
+          <button 
+            onClick={onAddClick}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Add Target
+          </button>
         </div>
       </div>
-      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-        <p className="text-slate-500 text-xs uppercase font-medium">Whale Targets</p>
-        <p className="text-2xl font-bold text-white mt-1">
-          {prospects.filter(p => p.score > 85).length}
-        </p>
-      </div>
-      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-        <p className="text-slate-500 text-xs uppercase font-medium">Response Rate</p>
-        <p className="text-2xl font-bold text-white mt-1">--%</p>
-        <div className="flex items-center gap-1 mt-2 text-slate-500 text-xs">
-          <Activity className="w-3 h-3" /> Not enough data
+
+      {/* Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+          <p className="text-slate-500 text-xs uppercase font-medium">Pipeline Value</p>
+          <p className="text-2xl font-bold text-white mt-1">
+             ${((prospects.length * 150000)/1000000).toFixed(1)}M
+          </p>
+          <div className="flex items-center gap-1 mt-2 text-emerald-400 text-xs">
+            <TrendingUp className="w-3 h-3" /> Live Estimate
+          </div>
+        </div>
+        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+          <p className="text-slate-500 text-xs uppercase font-medium">Whale Targets</p>
+          <p className="text-2xl font-bold text-white mt-1">
+            {prospects.filter(p => p.score > 85).length}
+          </p>
+        </div>
+        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+          <p className="text-slate-500 text-xs uppercase font-medium">Response Rate</p>
+          <p className="text-2xl font-bold text-white mt-1">--%</p>
+          <div className="flex items-center gap-1 mt-2 text-slate-500 text-xs">
+            <Activity className="w-3 h-3" /> Not enough data
+          </div>
+        </div>
+        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+          <p className="text-slate-500 text-xs uppercase font-medium">Drafts Pending</p>
+          <p className="text-2xl font-bold text-amber-400 mt-1">
+            {prospects.filter(p => p.status === 'Draft Ready').length}
+          </p>
         </div>
       </div>
-      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-        <p className="text-slate-500 text-xs uppercase font-medium">Drafts Pending</p>
-        <p className="text-2xl font-bold text-amber-400 mt-1">
-          {prospects.filter(p => p.status === 'Draft Ready').length}
-        </p>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="border border-emerald-500/30 bg-emerald-500/10 rounded-xl p-4 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+            <Zap className="w-5 h-5 text-emerald-300" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-emerald-200 font-semibold">Activate Sniper</p>
+            <p className="text-xs text-emerald-100/80">Prioritize whales and trigger outreach drafts</p>
+          </div>
+          <button onClick={onAddClick} className="text-xs font-semibold text-slate-900 bg-white px-3 py-1 rounded-lg">Add</button>
+        </div>
+        <div className="border border-slate-800 bg-slate-900 rounded-xl p-4 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-slate-800 flex items-center justify-center">
+            <Rss className="w-5 h-5 text-blue-300" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-white font-semibold">Monitor Signals</p>
+            <p className="text-xs text-slate-400">Jump to Social Center to spot breaking news</p>
+          </div>
+          <button onClick={onOpenSocial} className="text-xs font-semibold text-emerald-400 px-3 py-1 rounded-lg border border-emerald-500/30">Open</button>
+        </div>
+        <div className="border border-slate-800 bg-slate-900 rounded-xl p-4 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-slate-800 flex items-center justify-center">
+            <Filter className="w-5 h-5 text-amber-300" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-white font-semibold">Focus View</p>
+            <p className="text-xs text-slate-400">Filter by company, title, or impact keywords</p>
+          </div>
+          <span className="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-400 border border-slate-700">{filteredProspects.length} showing</span>
+        </div>
       </div>
-    </div>
+
+      {/* Analytics Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="p-4 rounded-xl border border-slate-800 bg-slate-900">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-500">Conversion Readiness</span>
+            <span className="text-[11px] text-emerald-400">est.</span>
+          </div>
+          <p className="text-3xl font-bold text-white">42%</p>
+          <p className="text-xs text-slate-500">Based on draft-ready + whale density</p>
+        </div>
+        <div className="p-4 rounded-xl border border-slate-800 bg-slate-900">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-500">Avg Turtle Score</span>
+            <span className="text-[11px] text-slate-500">live</span>
+          </div>
+          <p className="text-3xl font-bold text-white">{prospects.length ? Math.round(prospects.reduce((acc,p)=>acc+p.score,0)/prospects.length) : '--'}</p>
+          <p className="text-xs text-slate-500">Higher is better for outbound ROI</p>
+        </div>
+        <div className="p-4 rounded-xl border border-slate-800 bg-slate-900">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-500">Whales Tracked</span>
+            <span className="text-[11px] text-emerald-400">scored</span>
+          </div>
+          <p className="text-3xl font-bold text-white">{prospects.filter(p=>p.score>85).length}</p>
+          <p className="text-xs text-slate-500">Targets with score &gt; 85</p>
+        </div>
+      </div>
 
     {/* List */}
     <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden min-h-[300px]">
-      <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-        <h3 className="font-semibold text-white">Target List ({prospects.length})</h3>
-        <div className="flex gap-2 text-sm">
+      <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+        <h3 className="font-semibold text-white">Target List ({filteredProspects.length}/{prospects.length})</h3>
+        <div className="flex gap-2 text-sm items-center">
            <span className="text-slate-500">Sort by:</span>
            <span className="text-emerald-400 cursor-pointer">Score (High-Low)</span>
         </div>
       </div>
       
-      {prospects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-          <Target className="w-12 h-12 mb-4 opacity-20" />
-          <p className="text-lg font-medium text-slate-400">No Targets Yet</p>
-          <p className="text-sm mb-6">Your sniper list is empty.</p>
-          <button 
-            onClick={onAddClick}
-            className="px-4 py-2 border border-slate-700 hover:border-emerald-500/50 hover:text-emerald-400 rounded-lg text-sm transition-all"
-          >
-            Add your first target
-          </button>
+      {filteredProspects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-slate-500 px-6 text-center space-y-3">
+          <Target className="w-12 h-12 mb-2 opacity-20" />
+          <p className="text-lg font-medium text-slate-300">No matches found</p>
+          <p className="text-sm text-slate-500">Try clearing the search or add a new target.</p>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => onAddClick()}
+              className="px-4 py-2 border border-slate-700 hover:border-emerald-500/50 hover:text-emerald-400 rounded-lg text-sm transition-all"
+            >
+              Add target
+            </button>
+            <button
+              onClick={() => onOpenSocial?.()}
+              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-200 hover:bg-slate-700"
+            >
+              Watch signals
+            </button>
+          </div>
         </div>
       ) : (
         <table className="w-full text-left">
@@ -559,11 +731,11 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick }) => (
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
-            {prospects.map(p => (
+            {filteredProspects.map(p => (
               <tr key={p.id} className="hover:bg-slate-800/30 transition-colors group cursor-pointer" onClick={() => onSelectProspect(p)}>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white border border-slate-600">
+                    <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white border border-slate-600 shadow-inner">
                       {p.avatar}
                     </div>
                     <div>
@@ -575,7 +747,7 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick }) => (
                 <td className="px-6 py-4 text-slate-300">{p.company}</td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-16 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-1.5 w-20 bg-slate-700 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${p.score}%` }} />
                     </div>
                     <span className="text-sm font-mono text-emerald-400">{p.score}</span>
@@ -602,6 +774,7 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick }) => (
     </div>
   </div>
 );
+};
 
 const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
   const [selectedNews, setSelectedNews] = useState(null);
@@ -612,6 +785,7 @@ const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
   const [filterImpact, setFilterImpact] = useState('all'); // 'all', 'High', 'Medium'
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [showFeedModal, setShowFeedModal] = useState(false);
+  const trending = useMemo(() => getTrendingTopics(newsItems, 5), [newsItems]);
 
   const loadNews = async () => {
     setLoading(true);
@@ -683,6 +857,33 @@ const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <div className="p-3 rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-500">Items Loaded</p>
+              <p className="text-xl font-semibold text-white">{newsItems.length}</p>
+            </div>
+            <span className="text-[11px] text-slate-500">{includeReddit ? 'Feeds + Reddit' : 'Feeds'}</span>
+          </div>
+          <div className="p-3 rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-500">High Impact</p>
+              <p className="text-xl font-semibold text-red-300">{newsItems.filter(n=>n.impact==='High').length}</p>
+            </div>
+            <span className="text-[11px] text-slate-500">filtered</span>
+          </div>
+          <div className="p-3 rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-500">Last Refresh</p>
+              <p className="text-sm font-semibold text-white">{lastRefresh.toLocaleTimeString()}</p>
+            </div>
+            <button onClick={handleRefresh} className="text-[11px] px-2 py-1 rounded bg-slate-800 border border-slate-700 hover:border-emerald-500/40 flex items-center gap-1 text-slate-300">
+              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} /> Now
             </button>
           </div>
         </div>
@@ -803,7 +1004,16 @@ const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
 
         {/* Post Preview */}
         <div className="w-1/2 bg-slate-900 rounded-xl border border-slate-800 p-6 flex flex-col">
-          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-6">Generated Content</h3>
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Generated Content</h3>
+            {trending.length > 0 && (
+              <div className="flex flex-wrap gap-1 justify-end max-w-[260px]">
+                {trending.map(t => (
+                  <span key={t.topic} className="px-2 py-1 rounded-full bg-slate-800 text-[11px] text-slate-300 border border-slate-700">{t.topic}</span>
+                ))}
+              </div>
+            )}
+          </div>
           
           {selectedNews && !generatedPost ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-600">
@@ -869,10 +1079,40 @@ export default function FreightEngineApp() {
   const [selectedProspect, setSelectedProspect] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
   
   // App State - Using Local Storage (No Firebase needed)
   const [prospects, setProspects] = useState([]);
   const [customFeeds, setCustomFeeds] = useState([]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey) return;
+
+      // Global search
+      if (e.key === '/') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+
+      // Jump to dashboard
+      if (e.key.toLowerCase() === 'd' && e.shiftKey === false) {
+        setActiveTab('dashboard');
+        setSelectedProspect(null);
+      }
+
+      // Jump to social
+      if (e.key.toLowerCase() === 's' && e.shiftKey === false) {
+        setActiveTab('social');
+        setSelectedProspect(null);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Load data from local storage on mount
   useEffect(() => {
@@ -948,14 +1188,29 @@ export default function FreightEngineApp() {
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30">
-      <Sidebar activeTab={activeTab} setActiveTab={(tab) => { setActiveTab(tab); setSelectedProspect(null); }} />
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={(tab) => { setActiveTab(tab); setSelectedProspect(null); }}
+        totalTargets={prospects.length}
+        whaleCount={prospects.filter(p => p.score > 85).length}
+        draftCount={prospects.filter(p => p.status === 'Draft Ready').length}
+      />
       
       <main className="flex-1 relative overflow-hidden bg-gradient-to-br from-slate-950 to-slate-900">
+        <TopBar 
+          onSearch={setSearchQuery}
+          onAddClick={() => setIsAddModalOpen(true)}
+          onOpenSocial={() => { setActiveTab('social'); setSelectedProspect(null); }}
+          searchInputRef={searchInputRef}
+        />
+
         {activeTab === 'dashboard' && !selectedProspect && (
           <Dashboard 
             prospects={prospects} 
             onSelectProspect={handleSelectProspect} 
             onAddClick={() => setIsAddModalOpen(true)}
+            searchQuery={searchQuery}
+            onOpenSocial={() => setActiveTab('social')}
           />
         )}
         
