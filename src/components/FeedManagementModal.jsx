@@ -1,10 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, X, Rss, ExternalLink } from 'lucide-react';
 
 const FeedManagementModal = ({ isOpen, onClose, customFeeds = [], onAddFeed, onDeleteFeed }) => {
   const [newFeedName, setNewFeedName] = useState('');
   const [newFeedUrl, setNewFeedUrl] = useState('');
   const [saving, setSaving] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    const handleMove = (e) => {
+      if (!isDraggingRef.current) return;
+      setDragOffset({
+        x: e.clientX - dragStartRef.current.x,
+        y: e.clientY - dragStartRef.current.y,
+      });
+    };
+    const handleUp = () => {
+      isDraggingRef.current = false;
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setDragOffset({ x: 0, y: 0 });
+    }
+  }, [isOpen]);
+
+  const handleDragStart = (e) => {
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      x: e.clientX - dragOffset.x,
+      y: e.clientY - dragOffset.y,
+    };
+  };
 
   const handleAddFeed = (e) => {
     e.preventDefault();
@@ -28,9 +64,15 @@ const FeedManagementModal = ({ isOpen, onClose, customFeeds = [], onAddFeed, onD
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
-        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+    <div className="fixed inset-0 modal-overlay-contrast z-50 flex items-center justify-center p-4">
+      <div
+        className="bg-slate-900 border border-emerald-600/40 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full max-w-2xl max-h-[80vh] overflow-hidden"
+        style={{ transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)` }}
+      >
+        <div
+          className="p-6 border-b border-slate-800 flex items-center justify-between cursor-grab active:cursor-grabbing select-none bg-slate-900/80"
+          onMouseDown={handleDragStart}
+        >
           <div>
             <h3 className="text-lg font-bold text-white">Manage News Feeds</h3>
             <p className="text-sm text-slate-400">Add custom RSS feeds to your Social Center</p>

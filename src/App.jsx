@@ -184,7 +184,7 @@ const generateMockPost = (newsItem) => {
  */
 
 const Sidebar = ({ activeTab, setActiveTab, totalTargets = 0, whaleCount = 0, draftCount = 0 }) => (
-  <div className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col h-full text-slate-300 flex-shrink-0">
+  <div className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col h-full text-slate-300 flex-shrink-0 vibe-card">
     <div className="p-6 flex items-center gap-3 border-b border-slate-800">
       <div className="bg-emerald-500/20 p-2 rounded-lg">
         <Brain className="w-6 h-6 text-emerald-400" />
@@ -292,6 +292,43 @@ const AgentStatus = ({ step, currentStep }) => {
 
 // Modal for adding new prospects
 const AddProspectModal = ({ isOpen, onClose, onAdd, isSubmitting }) => {
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+
+  useEffect(() => {
+    const handleMove = (e) => {
+      if (!isDraggingRef.current) return;
+      setDragOffset({
+        x: e.clientX - dragStartRef.current.x,
+        y: e.clientY - dragStartRef.current.y,
+      });
+    };
+    const handleUp = () => {
+      isDraggingRef.current = false;
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setDragOffset({ x: 0, y: 0 });
+    }
+  }, [isOpen]);
+
+  const handleDragStart = (e) => {
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      x: e.clientX - dragOffset.x,
+      y: e.clientY - dragOffset.y,
+    };
+  };
+
   if (!isOpen) return null;
   
   const handleSubmit = (e) => {
@@ -305,9 +342,15 @@ const AddProspectModal = ({ isOpen, onClose, onAdd, isSubmitting }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="p-6 border-b border-slate-800">
+    <div className="fixed inset-0 modal-overlay-contrast z-50 flex items-center justify-center p-4">
+      <div
+        className="bg-slate-900 border border-emerald-600/40 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.45)] w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        style={{ transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)` }}
+      >
+        <div
+          className="p-6 border-b border-slate-800 cursor-grab active:cursor-grabbing select-none bg-slate-900/80"
+          onMouseDown={handleDragStart}
+        >
           <h3 className="text-lg font-bold text-white">Add New Target</h3>
           <p className="text-sm text-slate-400">Add a high-value prospect to the Engine.</p>
         </div>
@@ -363,10 +406,15 @@ const AddProspectModal = ({ isOpen, onClose, onAdd, isSubmitting }) => {
   );
 };
 
-const ProspectDetail = ({ prospect, onBack, onDelete }) => {
+const ProspectDetail = ({ prospect, onBack, onDelete, onUpdate }) => {
   const [generationStep, setGenerationStep] = useState(0); 
   const [draft, setDraft] = useState(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [editableProspect, setEditableProspect] = useState(prospect);
+
+  useEffect(() => {
+    setEditableProspect(prospect);
+  }, [prospect]);
 
   useEffect(() => {
     if (generationStep > 0 && generationStep < 5) {
@@ -435,6 +483,91 @@ const ProspectDetail = ({ prospect, onBack, onDelete }) => {
                    HQ Zip Code shows +15% Rejection Rate (SONAR)
                 </li>
               </ul>
+            </div>
+
+            <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700 space-y-3">
+              <div className="flex items-center gap-2 mb-1 text-blue-300">
+                <User className="w-4 h-4" />
+                <span className="font-medium text-sm">Contact Data</span>
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="text-xs text-slate-500">Name</label>
+                  <input
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                    value={editableProspect?.name || ''}
+                    onChange={(e) => setEditableProspect((prev) => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-500">Email</label>
+                    <input
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                      value={editableProspect?.email || ''}
+                      onChange={(e) => setEditableProspect((prev) => ({ ...prev, email: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">Phone</label>
+                    <input
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                      value={editableProspect?.phone || ''}
+                      onChange={(e) => setEditableProspect((prev) => ({ ...prev, phone: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-500">Title</label>
+                    <input
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                      value={editableProspect?.title || ''}
+                      onChange={(e) => setEditableProspect((prev) => ({ ...prev, title: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">Company</label>
+                    <input
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                      value={editableProspect?.company || ''}
+                      onChange={(e) => setEditableProspect((prev) => ({ ...prev, company: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-500">LinkedIn (Personal)</label>
+                    <input
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                      value={editableProspect?.linkedinPersonal || ''}
+                      onChange={(e) => setEditableProspect((prev) => ({ ...prev, linkedinPersonal: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">LinkedIn (Company)</label>
+                    <input
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+                      value={editableProspect?.linkedinCompany || ''}
+                      onChange={(e) => setEditableProspect((prev) => ({ ...prev, linkedinCompany: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">Description / Notes</label>
+                  <textarea
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white h-20"
+                    value={editableProspect?.description || ''}
+                    onChange={(e) => setEditableProspect((prev) => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+                <button
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold border border-emerald-500/50"
+                  onClick={() => onUpdate?.({ ...editableProspect })}
+                >
+                  Save edits
+                </button>
+              </div>
             </div>
 
             <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
@@ -556,7 +689,47 @@ const ProspectDetail = ({ prospect, onBack, onDelete }) => {
   );
 };
 
-const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', onOpenSocial }) => {
+const sanitizeProspects = (items = []) => items.filter((p) => (p?.name || '').trim());
+
+const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', onOpenSocial, onExportJson, onImportJson, onImportCsv, onUpdateProspect, onBulkUpdateProspects, onClearProspects }) => {
+  const [editingId, setEditingId] = useState(null);
+  const [editingDraft, setEditingDraft] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredProspects.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredProspects.map((p) => p.id));
+    }
+  };
+
+  const startEdit = (p) => {
+    setEditingId(p.id);
+    setEditingDraft({ ...p });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingDraft(null);
+  };
+
+  const saveEdit = () => {
+    if (editingDraft) {
+      onUpdateProspect?.(editingDraft);
+      setEditingId(null);
+      setEditingDraft(null);
+    }
+  };
+
+  const applyBulk = (patch) => {
+    onBulkUpdateProspects?.(selectedIds, patch);
+    setSelectedIds([]);
+  };
   const filteredProspects = prospects.filter((p) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -579,7 +752,7 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', 
             )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
           <button 
             onClick={onOpenSocial}
             className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-800 text-sm flex items-center gap-2"
@@ -593,12 +766,85 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', 
             <Plus className="w-4 h-4" />
             Add Target
           </button>
+            <button
+              onClick={onClearProspects}
+              className="px-3 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg border border-red-500/70 text-sm font-semibold"
+            >
+              Clear All Targets
+            </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 vibe-card">
+        <span className="text-xs text-slate-500 uppercase tracking-[0.15em]">Data Ops</span>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={onImportCsv} className="px-3 py-1.5 text-xs rounded-lg bg-slate-800 text-slate-100 border border-slate-700 hover:border-emerald-500/40">Import CSV</button>
+          <button onClick={onImportJson} className="px-3 py-1.5 text-xs rounded-lg bg-slate-800 text-slate-100 border border-slate-700 hover:border-emerald-500/40">Import JSON</button>
+          <button onClick={onExportJson} className="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white border border-emerald-500/60 hover:bg-emerald-500">Export JSON</button>
+          <button onClick={() => onClearProspects?.()} className="px-3 py-1.5 text-xs rounded-lg bg-red-600/80 text-white border border-red-500/60 hover:bg-red-600">Clear All</button>
+        </div>
+        <span className="text-[11px] text-slate-500">CSV fields: name, company, title, score, status</span>
+      </div>
+
+      <div className="vibe-card border border-emerald-500/20 bg-slate-900 rounded-xl p-5 shadow-lg shadow-emerald-900/10">
+        <div className="flex flex-col md:flex-row justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-[11px] mono-pill text-emerald-300 tracking-[0.2em]">WHY DWTB?!</p>
+            <h3 className="text-xl font-bold text-white">Force multiplier, not an agency</h3>
+            <p className="text-sm text-slate-400 max-w-2xl">You are not hiring an agency - you are hiring a force multiplier. Pair freight intel with brand, motion, and network depth inside one ops stack.</p>
+          </div>
+          <div className="hidden md:flex flex-wrap gap-2 items-start justify-end min-w-[280px]">
+            {['WebGL Dev', 'Motion Design', 'Messaging Architecture', 'Earned Placements'].map((tag) => (
+              <span key={tag} className="mono-pill text-[11px] px-3 py-1 rounded-full bg-slate-800 text-emerald-200 border border-emerald-500/30 shadow-[0_0_25px_rgba(16,185,129,0.12)]">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 text-sm text-slate-200">
+          <div className="bg-slate-900/70 border border-slate-800 rounded-lg p-3">
+            <p className="mono-pill text-[11px] text-emerald-300 mb-2">Creative</p>
+            <ul className="space-y-1 text-slate-300">
+              <li>WebGL development</li>
+              <li>Brand systems</li>
+              <li>Motion design</li>
+              <li>Interactive demos</li>
+            </ul>
+          </div>
+          <div className="bg-slate-900/70 border border-slate-800 rounded-lg p-3">
+            <p className="mono-pill text-[11px] text-emerald-300 mb-2">Strategy</p>
+            <ul className="space-y-1 text-slate-300">
+              <li>GTM planning</li>
+              <li>Messaging architecture</li>
+              <li>Competitive positioning</li>
+              <li>Event activation</li>
+            </ul>
+          </div>
+          <div className="bg-slate-900/70 border border-slate-800 rounded-lg p-3">
+            <p className="mono-pill text-[11px] text-emerald-300 mb-2">Media</p>
+            <ul className="space-y-1 text-slate-300">
+              <li>PR outreach</li>
+              <li>Earned placements</li>
+              <li>Podcast network</li>
+              <li>Content engine</li>
+            </ul>
+          </div>
+          <div className="bg-slate-900/70 border border-slate-800 rounded-lg p-3">
+            <p className="mono-pill text-[11px] text-emerald-300 mb-2">Network</p>
+            <ul className="space-y-1 text-slate-300">
+              <li>C-suite intros</li>
+              <li>Investor connections</li>
+              <li>Media relationships</li>
+              <li>Industry events</li>
+            </ul>
+          </div>
         </div>
       </div>
 
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+        <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 vibe-card">
           <p className="text-slate-500 text-xs uppercase font-medium">Pipeline Value</p>
           <p className="text-2xl font-bold text-white mt-1">
              ${((prospects.length * 150000)/1000000).toFixed(1)}M
@@ -607,20 +853,20 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', 
             <TrendingUp className="w-3 h-3" /> Live Estimate
           </div>
         </div>
-        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+        <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 vibe-card">
           <p className="text-slate-500 text-xs uppercase font-medium">Whale Targets</p>
           <p className="text-2xl font-bold text-white mt-1">
             {prospects.filter(p => p.score > 85).length}
           </p>
         </div>
-        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+        <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 vibe-card">
           <p className="text-slate-500 text-xs uppercase font-medium">Response Rate</p>
           <p className="text-2xl font-bold text-white mt-1">--%</p>
           <div className="flex items-center gap-1 mt-2 text-slate-500 text-xs">
             <Activity className="w-3 h-3" /> Not enough data
           </div>
         </div>
-        <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+        <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700 vibe-card">
           <p className="text-slate-500 text-xs uppercase font-medium">Drafts Pending</p>
           <p className="text-2xl font-bold text-amber-400 mt-1">
             {prospects.filter(p => p.status === 'Draft Ready').length}
@@ -691,7 +937,7 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', 
       </div>
 
     {/* List */}
-    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden min-h-[300px]">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden min-h-[300px] vibe-card">
       <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-semibold text-white">Target List ({filteredProspects.length}/{prospects.length})</h3>
         <div className="flex gap-2 text-sm items-center">
@@ -699,6 +945,45 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', 
            <span className="text-emerald-400 cursor-pointer">Score (High-Low)</span>
         </div>
       </div>
+
+      {selectedIds.length > 0 && (
+        <div className="px-6 py-3 bg-slate-900/80 border-b border-slate-800 flex flex-wrap items-center gap-3 text-sm">
+          <span className="text-slate-300 font-semibold">Bulk edit ({selectedIds.length})</span>
+          <input
+            placeholder="Set company"
+            className="bg-slate-900 border border-slate-700 rounded px-3 py-1 text-sm text-white"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') applyBulk({ company: e.target.value });
+            }}
+          />
+          <input
+            placeholder="Set title"
+            className="bg-slate-900 border border-slate-700 rounded px-3 py-1 text-sm text-white"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') applyBulk({ title: e.target.value });
+            }}
+          />
+          <input
+            placeholder="Set status"
+            className="bg-slate-900 border border-slate-700 rounded px-3 py-1 text-sm text-white"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') applyBulk({ status: e.target.value });
+            }}
+          />
+          <button
+            className="px-3 py-1 rounded bg-emerald-600 text-white text-xs font-semibold border border-emerald-500/50"
+            onClick={() => applyBulk({ status: 'New' })}
+          >
+            Reset status
+          </button>
+          <button
+            className="px-3 py-1 rounded bg-slate-800 text-slate-200 text-xs border border-slate-700"
+            onClick={() => setSelectedIds([])}
+          >
+            Clear
+          </button>
+        </div>
+      )}
       
       {filteredProspects.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-500 px-6 text-center space-y-3">
@@ -724,6 +1009,13 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', 
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-800/50 text-slate-400 text-sm">
+              <th className="px-4 py-3 font-medium">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.length === filteredProspects.length && filteredProspects.length > 0}
+                  onChange={toggleSelectAll}
+                />
+              </th>
               <th className="px-6 py-3 font-medium">Prospect</th>
               <th className="px-6 py-3 font-medium">Company</th>
               <th className="px-6 py-3 font-medium">Turtle Score</th>
@@ -734,18 +1026,75 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', 
           <tbody className="divide-y divide-slate-800">
             {filteredProspects.map(p => (
               <tr key={p.id} className="hover:bg-slate-800/30 transition-colors group cursor-pointer" onClick={() => onSelectProspect(p)}>
+                <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleSelect(p.id)} />
+                </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white border border-slate-600 shadow-inner">
                       {p.avatar}
                     </div>
                     <div>
-                      <div className="font-medium text-white">{p.name}</div>
-                      <div className="text-xs text-slate-500">{p.title}</div>
+                      {editingId === p.id ? (
+                        <div className="space-y-1">
+                          <input
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm text-white"
+                            value={editingDraft?.name || ''}
+                            onChange={(e) => setEditingDraft((prev) => ({ ...prev, name: e.target.value }))}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <input
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                            value={editingDraft?.title || ''}
+                            onChange={(e) => setEditingDraft((prev) => ({ ...prev, title: e.target.value }))}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <input
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white"
+                            value={editingDraft?.email || ''}
+                            onChange={(e) => setEditingDraft((prev) => ({ ...prev, email: e.target.value }))}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-medium text-white">{p.name}</div>
+                          <div className="text-xs text-slate-500">{p.title}</div>
+                          {p.email && <div className="text-[11px] text-slate-500">{p.email}</div>}
+                          {(p.linkedinPersonal || p.linkedinCompany) && (
+                            <div className="flex items-center gap-2 mt-1">
+                              {p.linkedinPersonal && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-emerald-300 border border-emerald-500/30">LinkedIn</span>}
+                              {p.linkedinCompany && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-sky-300 border border-sky-500/30">Company</span>}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-slate-300">{p.company}</td>
+                <td className="px-6 py-4 text-slate-300">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {editingId === p.id ? (
+                      <input
+                        className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm text-white"
+                        value={editingDraft?.company || ''}
+                        onChange={(e) => setEditingDraft((prev) => ({ ...prev, company: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span>{p.company}</span>
+                    )}
+                    {p.companyDomain && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                        (p.dataWarnings || []).includes('Email/company mismatch')
+                          ? 'border-red-500/40 text-red-300 bg-red-500/10'
+                          : 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10'
+                      }`}>
+                        {p.companyDomain}
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     <div className="h-1.5 w-20 bg-slate-700 rounded-full overflow-hidden">
@@ -763,9 +1112,21 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', 
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="text-emerald-400 hover:text-emerald-300 text-sm font-medium flex items-center gap-1 justify-end w-full">
-                    Engage <ChevronRight className="w-4 h-4" />
-                  </button>
+                  {editingId === p.id ? (
+                    <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button className="text-xs px-3 py-1 rounded bg-emerald-600 text-white" onClick={saveEdit}>Save</button>
+                      <button className="text-xs px-3 py-1 rounded bg-slate-800 text-slate-200 border border-slate-700" onClick={cancelEdit}>Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button className="text-emerald-400 hover:text-emerald-300 text-sm font-medium flex items-center gap-1" onClick={() => onSelectProspect(p)}>
+                        Engage <ChevronRight className="w-4 h-4" />
+                      </button>
+                      <button className="text-xs px-3 py-1 rounded bg-slate-800 text-slate-200 border border-slate-700" onClick={() => startEdit(p)}>
+                        Edit
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -778,6 +1139,7 @@ const Dashboard = ({ prospects, onSelectProspect, onAddClick, searchQuery = '', 
 };
 
 const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
+  const TRACK_KEY = 'freightintel_social_tracking';
   const [selectedNews, setSelectedNews] = useState(null);
   const [generatedPost, setGeneratedPost] = useState(null);
   const [newsItems, setNewsItems] = useState([]);
@@ -787,6 +1149,15 @@ const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [showFeedModal, setShowFeedModal] = useState(false);
   const trending = useMemo(() => getTrendingTopics(newsItems, 5), [newsItems]);
+  const [savedItems, setSavedItems] = useState([]);
+  const [watchKeywords, setWatchKeywords] = useState(['port', 'strike']);
+  const [newKeyword, setNewKeyword] = useState('');
+  const watchHits = useMemo(() => {
+    return watchKeywords.map((kw) => {
+      const count = newsItems.filter((n) => `${n.title} ${n.summary}`.toLowerCase().includes(kw.toLowerCase())).length;
+      return { kw, count };
+    });
+  }, [watchKeywords, newsItems]);
 
   const loadNews = async () => {
     setLoading(true);
@@ -823,12 +1194,50 @@ const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
     return () => clearInterval(interval);
   }, [includeReddit, filterImpact, customFeeds]);
 
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(TRACK_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setSavedItems(parsed.savedItems || []);
+        setWatchKeywords(parsed.watchKeywords || ['port', 'strike']);
+      }
+    } catch (e) {
+      console.warn('Tracking load failed', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TRACK_KEY, JSON.stringify({ savedItems, watchKeywords }));
+    } catch (e) {
+      console.warn('Tracking persist failed', e);
+    }
+  }, [savedItems, watchKeywords]);
+
   const handleGenerate = (item) => {
     setSelectedNews(item);
     setGeneratedPost(null);
     setTimeout(() => {
       setGeneratedPost(generateMockPost(item));
     }, 1500);
+  };
+
+  const toggleSaveItem = (item) => {
+    setSavedItems((prev) => {
+      const exists = prev.find((p) => p.id === item.id);
+      if (exists) return prev.filter((p) => p.id !== item.id);
+      return [...prev, item];
+    });
+  };
+
+  const handleAddKeyword = () => {
+    const trimmed = newKeyword.trim();
+    if (!trimmed) return;
+    if (!watchKeywords.includes(trimmed)) {
+      setWatchKeywords((prev) => [...prev, trimmed]);
+    }
+    setNewKeyword('');
   };
 
   const handleRefresh = () => {
@@ -888,6 +1297,46 @@ const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
             </button>
           </div>
         </div>
+
+        {/* Tracking Board */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+          <div className="p-4 rounded-lg border border-slate-800 bg-slate-900 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-500">Saved Signals</p>
+              <p className="text-xl font-semibold text-white">{savedItems.length}</p>
+            </div>
+            <span className="text-[11px] text-slate-500">Quick stash</span>
+          </div>
+          <div className="p-4 rounded-lg border border-slate-800 bg-slate-900">
+            <p className="text-xs text-slate-500 mb-2">Watch Keywords</p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {watchKeywords.map((kw) => (
+                <span key={kw} className="px-2 py-1 rounded-full bg-slate-800 text-[11px] text-slate-200 border border-slate-700">
+                  {kw}
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={newKeyword}
+                onChange={(e) => setNewKeyword(e.target.value)}
+                placeholder="Add keyword"
+                className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white placeholder:text-slate-600"
+              />
+              <button onClick={handleAddKeyword} className="text-xs px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-500">Add</button>
+            </div>
+          </div>
+          <div className="p-4 rounded-lg border border-slate-800 bg-slate-900">
+            <p className="text-xs text-slate-500 mb-2">Keyword Hits</p>
+            <div className="flex flex-wrap gap-2">
+              {watchHits.map(({ kw, count }) => (
+                <span key={kw} className={`px-2 py-1 rounded-lg text-[11px] border ${count > 0 ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-slate-700 text-slate-400 bg-slate-800'}`}>
+                  {kw}: {count}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
         
         {/* Filters */}
         <div className="flex items-center gap-4 p-4 bg-slate-900 rounded-lg border border-slate-800">
@@ -944,63 +1393,79 @@ const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
               <p className="text-sm">Try adjusting your filters</p>
             </div>
           ) : (
-            newsItems.map(news => (
-            <div 
-              key={news.id} 
-              onClick={() => handleGenerate(news)}
-              className={`p-5 rounded-xl border cursor-pointer transition-all ${
-                selectedNews?.id === news.id 
-                ? 'bg-slate-800 border-emerald-500/50 shadow-lg shadow-emerald-900/10' 
-                : 'bg-slate-900 border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-400 uppercase">{news.source}</span>
-                <span className="text-xs text-slate-500">{news.time}</span>
-              </div>
-              <h3 className="text-lg font-bold text-white mb-2">{news.title}</h3>
-              <p className="text-sm text-slate-400 mb-4">{news.summary}</p>
-              
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-1 rounded text-xs font-medium border ${
-                  news.category === 'Macro Shock' 
-                    ? 'bg-red-900/20 text-red-400 border-red-900/30 font-bold'
-                    : news.category === 'Compliance'
-                    ? 'bg-amber-900/20 text-amber-400 border-amber-900/30'
-                    : news.category === 'Community Discussion'
-                    ? 'bg-purple-900/20 text-purple-400 border-purple-900/30'
-                    : 'bg-slate-800 text-slate-400 border-slate-700'
-                }`}>
-                  {news.category}
-                </span>
-                
-                {news.impact === 'High' && (
-                  <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
-                    HIGH IMPACT
-                  </span>
-                )}
-                
-                {news.link && (
-                  <a 
-                    href={news.link} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-xs text-slate-500 hover:text-emerald-400 flex items-center gap-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
-                
-                <button
+            newsItems.map((news) => {
+              const isSaved = savedItems.some((s) => s.id === news.id);
+              const hasWatch = watchKeywords.some((kw) => `${news.title} ${news.summary}`.toLowerCase().includes(kw.toLowerCase()));
+              return (
+                <div 
+                  key={news.id} 
                   onClick={() => handleGenerate(news)}
-                  className="text-xs text-emerald-400 font-medium ml-auto flex items-center gap-1 hover:underline"
+                  className={`p-5 rounded-xl border cursor-pointer transition-all ${
+                    selectedNews?.id === news.id 
+                    ? 'bg-slate-800 border-emerald-500/50 shadow-lg shadow-emerald-900/10' 
+                    : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                  }`}
                 >
-                  <Zap className="w-3 h-3" /> Generate Take
-                </button>
-              </div>
-            </div>
-          )))}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase">{news.source}</span>
+                    <div className="flex items-center gap-2">
+                      {hasWatch && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">Tracked</span>
+                      )}
+                      <span className="text-xs text-slate-500">{news.time}</span>
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">{news.title}</h3>
+                  <p className="text-sm text-slate-400 mb-4">{news.summary}</p>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-1 rounded text-xs font-medium border ${
+                      news.category === 'Macro Shock' 
+                        ? 'bg-red-900/20 text-red-400 border-red-900/30 font-bold'
+                        : news.category === 'Compliance'
+                        ? 'bg-amber-900/20 text-amber-400 border-amber-900/30'
+                        : news.category === 'Community Discussion'
+                        ? 'bg-purple-900/20 text-purple-400 border-purple-900/30'
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}>
+                      {news.category}
+                    </span>
+                    
+                    {news.impact === 'High' && (
+                      <span className="px-2 py-1 rounded text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                        HIGH IMPACT
+                      </span>
+                    )}
+                    
+                    {news.link && (
+                      <a 
+                        href={news.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-slate-500 hover:text-emerald-400 flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    
+                    <button
+                      onClick={() => handleGenerate(news)}
+                      className="text-xs text-emerald-400 font-medium ml-auto flex items-center gap-1 hover:underline"
+                    >
+                      <Zap className="w-3 h-3" /> Generate Take
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleSaveItem(news); }}
+                      className={`text-xs font-medium px-2 py-1 rounded border ${isSaved ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-slate-700 text-slate-300 hover:border-emerald-500/30'}`}
+                    >
+                      {isSaved ? 'Saved' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Post Preview */}
@@ -1013,6 +1478,25 @@ const SocialCenter = ({ customFeeds = [], onAddFeed, onDeleteFeed }) => {
                   <span key={t.topic} className="px-2 py-1 rounded-full bg-slate-800 text-[11px] text-slate-300 border border-slate-700">{t.topic}</span>
                 ))}
               </div>
+            )}
+          </div>
+
+          <div className="mb-4 bg-slate-800/70 border border-slate-700 rounded-lg p-3">
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span>Saved signals ({savedItems.length})</span>
+              <span className="text-[11px] text-slate-500">Tap “Save” on any card</span>
+            </div>
+            {savedItems.length === 0 ? (
+              <p className="text-xs text-slate-500">Nothing saved yet.</p>
+            ) : (
+              <ul className="space-y-1 text-xs text-slate-200 max-h-24 overflow-y-auto">
+                {savedItems.slice(0, 5).map((item) => (
+                  <li key={item.id} className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span className="line-clamp-1">{item.title}</span>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
           
@@ -1086,6 +1570,8 @@ export default function FreightEngineApp() {
   // App State - Using Local Storage (No Firebase needed)
   const [prospects, setProspects] = useState([]);
   const [customFeeds, setCustomFeeds] = useState([]);
+  const jsonInputRef = useRef(null);
+  const csvInputRef = useRef(null);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1117,14 +1603,20 @@ export default function FreightEngineApp() {
 
   // Load data from local storage on mount
   useEffect(() => {
-    setProspects(loadFromStorage(STORAGE_KEY, []));
+    setProspects(sanitizeProspects(loadFromStorage(STORAGE_KEY, [])));
     setCustomFeeds(loadFromStorage(FEEDS_KEY, []));
   }, []);
 
   // Save prospects whenever they change
   useEffect(() => {
     if (prospects.length > 0) {
-      saveToStorage(STORAGE_KEY, prospects);
+      saveToStorage(STORAGE_KEY, sanitizeProspects(prospects));
+    } else {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {
+        console.warn('Storage clear failed', e);
+      }
     }
   }, [prospects]);
 
@@ -1174,6 +1666,23 @@ export default function FreightEngineApp() {
     }
   };
 
+  const handleClearProspects = () => {
+    if (confirm('Clear all targets? This removes imported contacts so you can upload fresh.')) {
+      setProspects([]);
+      setSelectedProspect(null);
+    }
+  };
+
+  const handleUpdateProspect = (updated) => {
+    setProspects((prev) => sanitizeProspects(prev.map((p) => (p.id === updated.id ? { ...p, ...updated, lastActivity: 'Edited' } : p))));
+    setSelectedProspect((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+  };
+
+  const handleBulkUpdateProspects = (ids = [], patch = {}) => {
+    if (!ids.length) return;
+    setProspects((prev) => sanitizeProspects(prev.map((p) => (ids.includes(p.id) ? { ...p, ...patch, lastActivity: 'Edited' } : p))));
+  };
+
   const handleAddFeed = (feed) => {
     const newFeed = {
       id: Date.now().toString(),
@@ -1187,9 +1696,194 @@ export default function FreightEngineApp() {
     setCustomFeeds(prev => prev.filter(f => f.id !== id));
   };
 
+  // Data import/export helpers
+  const normalizeProspect = (p) => {
+    const initials = (p.name || 'NA')
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+
+    const emailDomain = (p.email || '').split('@')[1] || '';
+    const companyNormalized = (p.company || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const domainNormalized = emailDomain.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const warnings = [];
+    if (!p.email) warnings.push('Missing email');
+    if (!p.linkedinPersonal && !p.linkedinCompany) warnings.push('Missing LinkedIn');
+    if (p.company && domainNormalized && companyNormalized && !domainNormalized.includes(companyNormalized)) {
+      warnings.push('Email/company mismatch');
+    }
+
+    return {
+      id: p.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: p.name || 'Unknown',
+      firstName: p.firstName,
+      lastName: p.lastName,
+      email: p.email || '',
+      phone: p.phone || '',
+      linkedinPersonal: p.linkedinPersonal || '',
+      linkedinCompany: p.linkedinCompany || '',
+      companyDomain: emailDomain,
+      description: p.description || '',
+      company: p.company || 'Unknown Co',
+      title: p.title || p.jobTitle || 'Unknown Title',
+      score: Number.isFinite(Number(p.score)) ? Number(p.score) : Math.floor(Math.random() * (98 - 60 + 1) + 60),
+      status: p.status || 'New',
+      lastActivity: p.lastActivity || 'Imported',
+      signals: p.signals || [],
+      avatar: p.avatar || initials,
+      createdAt: p.createdAt || new Date().toISOString(),
+      dataWarnings: warnings,
+    };
+  };
+
+  const handleExportJson = () => {
+    const data = JSON.stringify(prospects, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'freightintel-targets.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportJson = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!Array.isArray(parsed)) throw new Error('JSON must be an array');
+        const normalized = parsed.map(normalizeProspect);
+        setProspects((prev) => sanitizeProspects([...prev, ...normalized]).sort((a, b) => b.score - a.score));
+      } catch (err) {
+        alert('Import failed: ' + err.message);
+      } finally {
+        event.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const parseCsvLine = (line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+      
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const parseCsv = (text) => {
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    if (lines.length === 0) return [];
+    
+    const headers = parseCsvLine(lines[0]).map((h) => h.trim());
+    const norm = (h) => h.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normalizedHeaders = headers.map(norm);
+    
+    console.log('CSV Headers:', headers);
+    console.log('Normalized Headers:', normalizedHeaders);
+    
+    const rows = lines.slice(1);
+    const parsed = rows
+      .map((line) => parseCsvLine(line))
+      .filter((cells) => cells.length >= 1 && cells.some(c => c.trim()))
+      .map((cells) => {
+        const obj = {};
+        headers.forEach((h, idx) => {
+          const normalizedKey = norm(h);
+          obj[normalizedKey] = cells[idx] || '';
+        });
+        return obj;
+      })
+      .map((o) => {
+        // Try multiple field name variations
+        const name = o.name || o.fullname || o.contactname || 
+                     `${o.firstname || o.fname || ''} ${o.lastname || o.lname || ''}`.trim() ||
+                     'Unknown';
+        const firstName = o.firstname || o.fname || o.givenname || '';
+        const lastName = o.lastname || o.lname || o.surname || o.familyname || '';
+        const email = o.email || o.emailaddress || o.mail || '';
+        const phone = o.phone || o.phonenumber || o.telephone || o.mobile || '';
+        const company = o.company || o.companyname || o.organization || o.org || o.account || '';
+        const title = o.title || o.jobtitle || o.position || o.role || '';
+        const linkedinPersonal = o.linkedinurl || o.linkedin || o.personallinkedin || o.linkedinprofile || '';
+        const linkedinCompany = o.companylinkedin || o.companylinkedinurl || '';
+        const description = o.description || o.notes || o.bio || '';
+        const status = o.status || 'New';
+        
+        return normalizeProspect({
+          name,
+          firstName,
+          lastName,
+          email,
+          phone,
+          company,
+          title,
+          description,
+          linkedinPersonal,
+          linkedinCompany,
+          status,
+        });
+      });
+    
+    console.log(`Parsed ${parsed.length} prospects from CSV`);
+    if (parsed.length > 0) {
+      console.log('Sample prospect:', parsed[0]);
+    }
+    
+    return parsed;
+  };
+
+  const handleImportCsv = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = parseCsv(reader.result || '');
+        if (parsed.length === 0) throw new Error('No rows found');
+        setProspects((prev) => sanitizeProspects([...prev, ...parsed]).sort((a, b) => b.score - a.score));
+      } catch (err) {
+        alert('CSV import failed: ' + err.message);
+      } finally {
+        event.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const triggerJsonImport = () => jsonInputRef.current?.click();
+  const triggerCsvImport = () => csvInputRef.current?.click();
+
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30 relative overflow-hidden">
+    <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30 relative overflow-hidden vibe-shell">
       <WebGLBackground />
+      <input type="file" accept="application/json" ref={jsonInputRef} className="hidden" onChange={handleImportJson} />
+      <input type="file" accept="text/csv,.csv" ref={csvInputRef} className="hidden" onChange={handleImportCsv} />
 
       <Sidebar 
         activeTab={activeTab} 
@@ -1214,6 +1908,12 @@ export default function FreightEngineApp() {
             onAddClick={() => setIsAddModalOpen(true)}
             searchQuery={searchQuery}
             onOpenSocial={() => setActiveTab('social')}
+            onExportJson={handleExportJson}
+            onImportJson={triggerJsonImport}
+            onImportCsv={triggerCsvImport}
+            onUpdateProspect={handleUpdateProspect}
+            onBulkUpdateProspects={handleBulkUpdateProspects}
+            onClearProspects={handleClearProspects}
           />
         )}
         
@@ -1222,6 +1922,7 @@ export default function FreightEngineApp() {
             prospect={selectedProspect} 
             onBack={handleBackToDashboard}
             onDelete={handleDeleteProspect}
+            onUpdate={handleUpdateProspect}
           />
         )}
 

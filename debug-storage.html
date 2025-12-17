@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreightIntel - Storage Debug</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+        .section {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #10b981;
+        }
+        h2 {
+            color: #10b981;
+            font-size: 1.2em;
+            margin-top: 0;
+        }
+        button {
+            background: #10b981;
+            color: #0f172a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #059669;
+        }
+        button.danger {
+            background: #ef4444;
+            color: white;
+        }
+        button.danger:hover {
+            background: #dc2626;
+        }
+        pre {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid #334155;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #334155;
+        }
+        .stat-label {
+            font-size: 0.875em;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #10b981;
+            margin-top: 5px;
+        }
+        .error {
+            color: #ef4444;
+        }
+        .success {
+            color: #10b981;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>FreightIntel Storage Debug Tool</h1>
+    
+    <div class="section">
+        <h2>Current Storage Stats</h2>
+        <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="section">
+        <h2>Import New CSV</h2>
+        <input type="file" id="csvFile" accept=".csv" />
+        <button onclick="importCsv()">Import & Replace All Data</button>
+        <button onclick="importCsvAppend()">Import & Append to Existing</button>
+        <div id="importStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>Actions</h2>
+        <button onclick="viewData()">View All Prospects (Console)</button>
+        <button onclick="viewSample()">View Sample (First 5)</button>
+        <button onclick="exportData()">Export to JSON</button>
+        <button onclick="fixData()">Fix "Unknown" Entries</button>
+        <button class="danger" onclick="clearAll()">Clear All Data</button>
+    </div>
+
+    <div class="section">
+        <h2>Sample Data Preview</h2>
+        <pre id="preview">Click "View Sample" to see data...</pre>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'freightintel_prospects';
+
+        function loadStats() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            let prospects = [];
+            try {
+                prospects = data ? JSON.parse(data) : [];
+            } catch (e) {
+                console.error('Error parsing storage:', e);
+            }
+
+            const stats = {
+                total: prospects.length,
+                unknown: prospects.filter(p => p.name === 'Unknown' || p.company === 'Unknown Co').length,
+                withEmail: prospects.filter(p => p.email && p.email.trim()).length,
+                withCompany: prospects.filter(p => p.company && p.company !== 'Unknown Co').length,
+                whales: prospects.filter(p => p.score > 85).length,
+                new: prospects.filter(p => p.status === 'New').length
+            };
+
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">Total Prospects</div>
+                    <div class="stat-value">${stats.total.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Unknown Entries</div>
+                    <div class="stat-value ${stats.unknown > 0 ? 'error' : ''}">${stats.unknown.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">With Email</div>
+                    <div class="stat-value">${stats.withEmail.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">With Company</div>
+                    <div class="stat-value">${stats.withCompany.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Whale Targets</div>
+                    <div class="stat-value">${stats.whales.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">New Status</div>
+                    <div class="stat-value">${stats.new.toLocaleString()}</div>
+                </div>
+            `;
+        }
+
+        function viewData() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            const prospects = data ? JSON.parse(data) : [];
+            console.log('All Prospects:', prospects);
+            console.log(`Total: ${prospects.length}`);
+            alert(`Logged ${prospects.length} prospects to console. Press F12 to view.`);
+        }
+
+        function viewSample() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            const prospects = data ? JSON.parse(data) : [];
+            const sample = prospects.slice(0, 5);
+            document.getElementById('preview').textContent = JSON.stringify(sample, null, 2);
+        }
+
+        function exportData() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            const prospects = data ? JSON.parse(data) : [];
+            const blob = new Blob([JSON.stringify(prospects, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `freightintel-export-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function clearAll() {
+            if (confirm('Are you sure you want to clear ALL prospect data? This cannot be undone.')) {
+                localStorage.removeItem(STORAGE_KEY);
+                loadStats();
+                document.getElementById('preview').textContent = 'Data cleared.';
+                alert('All data cleared. Refresh the main app to see changes.');
+            }
+        }
+
+        function parseCsvLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                const nextChar = line[i + 1];
+                
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        function parseCsv(text) {
+            const lines = text.trim().split(/\r?\n/).filter(Boolean);
+            if (lines.length === 0) return [];
+            
+            const headers = parseCsvLine(lines[0]).map(h => h.trim());
+            const norm = (h) => h.toLowerCase().replace(/[^a-z0-9]/g, '');
+            
+            console.log('CSV Headers:', headers);
+            
+            const rows = lines.slice(1);
+            return rows
+                .map(line => parseCsvLine(line))
+                .filter(cells => cells.length >= 1 && cells.some(c => c.trim()))
+                .map(cells => {
+                    const obj = {};
+                    headers.forEach((h, idx) => {
+                        obj[norm(h)] = (cells[idx] || '').replace(/^["']|["']$/g, '').trim();
+                    });
+                    return obj;
+                })
+                .map(o => {
+                    const name = o.name || o.fullname || o.contactname || 
+                                 `${o.firstname || o.fname || ''} ${o.lastname || o.lname || ''}`.trim() ||
+                                 'Unknown';
+                    const firstName = o.firstname || o.fname || o.givenname || '';
+                    const lastName = o.lastname || o.lname || o.surname || o.familyname || '';
+                    const email = o.email || o.emailaddress || o.mail || '';
+                    const phone = o.phone || o.phonenumber || o.telephone || o.mobile || '';
+                    const company = o.company || o.companyname || o.organization || o.org || o.account || '';
+                    const title = o.title || o.jobtitle || o.position || o.role || '';
+                    
+                    const initials = name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().substring(0, 2);
+                    
+                    return {
+                        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                        name,
+                        firstName,
+                        lastName,
+                        email,
+                        phone,
+                        company: company || 'Unknown Co',
+                        title: title || 'Unknown Title',
+                        score: Math.floor(Math.random() * (98 - 60 + 1) + 60),
+                        status: o.status || 'New',
+                        lastActivity: 'Imported',
+                        signals: [],
+                        avatar: initials,
+                        linkedinPersonal: o.linkedinurl || o.linkedin || o.personallinkedin || o.linkedinprofile || '',
+                        linkedinCompany: o.companylinkedin || o.companylinkedinurl || '',
+                        description: o.description || o.notes || o.bio || '',
+                        createdAt: new Date().toISOString()
+                    };
+                });
+        }
+
+        function importCsv() {
+            const file = document.getElementById('csvFile').files[0];
+            if (!file) {
+                alert('Please select a CSV file first');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const prospects = parseCsv(e.target.result);
+                    if (prospects.length === 0) {
+                        throw new Error('No valid data found in CSV');
+                    }
+                    
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(prospects));
+                    document.getElementById('importStatus').innerHTML = 
+                        `<p class="success">✓ Successfully imported ${prospects.length} prospects! Refresh the main app to see changes.</p>`;
+                    loadStats();
+                    viewSample();
+                } catch (err) {
+                    document.getElementById('importStatus').innerHTML = 
+                        `<p class="error">✗ Import failed: ${err.message}</p>`;
+                    console.error('Import error:', err);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function importCsvAppend() {
+            const file = document.getElementById('csvFile').files[0];
+            if (!file) {
+                alert('Please select a CSV file first');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const newProspects = parseCsv(e.target.result);
+                    if (newProspects.length === 0) {
+                        throw new Error('No valid data found in CSV');
+                    }
+                    
+                    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                    const combined = [...existing, ...newProspects];
+                    
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(combined));
+                    document.getElementById('importStatus').innerHTML = 
+                        `<p class="success">✓ Successfully appended ${newProspects.length} prospects! Total: ${combined.length}. Refresh the main app to see changes.</p>`;
+                    loadStats();
+                    viewSample();
+                } catch (err) {
+                    document.getElementById('importStatus').innerHTML = 
+                        `<p class="error">✗ Import failed: ${err.message}</p>`;
+                    console.error('Import error:', err);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function fixData() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            let prospects = data ? JSON.parse(data) : [];
+            
+            let fixed = 0;
+            prospects = prospects.map(p => {
+                let changed = false;
+                
+                // Try to fix name from email if unknown
+                if (p.name === 'Unknown' && p.email) {
+                    const emailName = p.email.split('@')[0];
+                    p.name = emailName.replace(/[._-]/g, ' ').split(' ')
+                        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                        .join(' ');
+                    changed = true;
+                }
+                
+                // Try to fix company from email domain
+                if (p.company === 'Unknown Co' && p.email) {
+                    const domain = p.email.split('@')[1];
+                    if (domain) {
+                        p.company = domain.split('.')[0]
+                            .charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
+                        changed = true;
+                    }
+                }
+                
+                if (changed) fixed++;
+                return p;
+            });
+            
+            if (fixed > 0) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(prospects));
+                alert(`Fixed ${fixed} entries. Refresh the main app to see changes.`);
+                loadStats();
+            } else {
+                alert('No entries needed fixing.');
+            }
+        }
+
+        // Load stats on page load
+        loadStats();
+    </script>
+</body>
+</html>
