@@ -1,13 +1,6 @@
-import Parser from 'rss-parser';
 import { formatDistanceToNow } from 'date-fns';
 
-const parser = new Parser({
-  customFields: {
-    item: ['media:content', 'media:thumbnail']
-  }
-});
-
-// CORS proxy for RSS feeds (you can replace with your own)
+// CORS proxy for RSS feeds
 const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
 
 // Default freight industry news sources
@@ -18,27 +11,6 @@ export const DEFAULT_FEEDS = [
     url: 'https://www.freightwaves.com/feed',
     category: 'Industry News',
     priority: 1
-  },
-  {
-    id: 'joc',
-    name: 'Journal of Commerce',
-    url: 'https://www.joc.com/rss/all-news',
-    category: 'Industry News',
-    priority: 1
-  },
-  {
-    id: 'transport-topics',
-    name: 'Transport Topics',
-    url: 'https://www.ttnews.com/rss',
-    category: 'Industry News',
-    priority: 1
-  },
-  {
-    id: 'logistics-mgmt',
-    name: 'Logistics Management',
-    url: 'https://www.logisticsmgmt.com/rss/topic/3134-trucking',
-    category: 'Industry News',
-    priority: 2
   },
   {
     id: 'supply-chain-dive',
@@ -98,34 +70,55 @@ function categorizeNews(title, content) {
 }
 
 /**
- * Fetch and parse a single RSS feed
+ * Simple XML parser for RSS feeds (browser-compatible)
  */
-export async function fetchFeed(feedUrl, feedName = 'Unknown') {
+function parseRSSXML(xmlText, feedName) {
   try {
-    const url = feedUrl.startsWith('http') ? `${CORS_PROXY}${encodeURIComponent(feedUrl)}` : feedUrl;
-    const feed = await parser.parseURL(url);
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'text/xml');
+    const items = doc.querySelectorAll('item');
     
-    return feed.items.map((item, index) => {
-      const pubDate = item.pubDate ? new Date(item.pubDate) : new Date();
-      const summary = item.contentSnippet || item.content || item.description || '';
-      const cleanSummary = summary
+    return Array.from(items).map((item, index) => {
+      const title = item.querySelector('title')?.textContent || 'No title';
+      const link = item.querySelector('link')?.textContent || '';
+      const description = item.querySelector('description')?.textContent || '';
+      const pubDate = item.querySelector('pubDate')?.textContent;
+      
+      const cleanDescription = description
         .replace(/<[^>]*>/g, '')
         .replace(/\n+/g, ' ')
         .substring(0, 200);
       
+      const date = pubDate ? new Date(pubDate) : new Date();
+      
       return {
         id: `${feedName}-${Date.now()}-${index}`,
         source: feedName,
-        title: item.title,
-        category: categorizeNews(item.title, cleanSummary),
-        impact: determineImpact(item.title, cleanSummary),
-        time: formatDistanceToNow(pubDate, { addSuffix: true }),
-        timestamp: pubDate.getTime(),
-        summary: cleanSummary.trim() + '...',
-        link: item.link,
-        fullContent: item.content || item.description
+        title: title,
+        category: categorizeNews(title, cleanDescription),
+        impact: determineImpact(title, cleanDescription),
+        time: formatDistanceToNow(date, { addSuffix: true }),
+        timestamp: date.getTime(),
+        summary: cleanDescription.trim() + '...',
+        link: link,
+        fullContent: description
       };
     });
+  } catch (error) {
+    console.error(`Error parsing feed ${feedName}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Fetch and parse a single RSS feed
+ */
+export async function fetchFeed(feedUrl, feedName = 'Unknown') {
+  try {
+    const url = `${CORS_PROXY}${encodeURIComponent(feedUrl)}`;
+    const response = await fetch(url);
+    const xmlText = await response.text();
+    return parseRSSXML(xmlText, feedName);
   } catch (error) {
     console.error(`Error fetching feed ${feedName}:`, error);
     return [];
