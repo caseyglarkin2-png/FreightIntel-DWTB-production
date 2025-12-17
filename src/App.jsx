@@ -42,6 +42,7 @@ import {
 
 // Components
 import FeedManagementModal from './components/FeedManagementModal';
+import WebGLBackground from './components/WebGLBackground';
 
 // --- LOCAL STORAGE HELPERS (No Firebase needed) ---
 const STORAGE_KEY = 'freightintel_prospects';
@@ -1187,7 +1188,9 @@ export default function FreightEngineApp() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30">
+    <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30 relative overflow-hidden">
+      <WebGLBackground />
+
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={(tab) => { setActiveTab(tab); setSelectedProspect(null); }}
@@ -1196,7 +1199,7 @@ export default function FreightEngineApp() {
         draftCount={prospects.filter(p => p.status === 'Draft Ready').length}
       />
       
-      <main className="flex-1 relative overflow-hidden bg-gradient-to-br from-slate-950 to-slate-900">
+      <main className="flex-1 relative overflow-hidden bg-gradient-to-br from-slate-950/90 to-slate-900/80 backdrop-blur">
         <TopBar 
           onSearch={setSearchQuery}
           onAddClick={() => setIsAddModalOpen(true)}
